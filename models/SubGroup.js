@@ -1,41 +1,26 @@
-
 import mongoose from "mongoose";
-import AttendanceLog from "./AttendanceLog.js";
 
 const subGroupSchema = new mongoose.Schema({
-  name: { type: String, required: true }, // e.g. "Group A"
+  name: { type: String, required: true },
   course: { type: mongoose.Schema.Types.ObjectId, ref: "Course", required: true },
   teacher: { type: mongoose.Schema.Types.ObjectId, ref: "Teacher", required: true },
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: "Student" }],
   totalStudents: { type: Number, default: 0 },
-  lastSessionDate: { type: Date },
-  avgAttendance: { type: Number, default: 0 },
-});
 
-//pre-save hook
-subGroupSchema.pre("save", async function (next) {
+  // cached for analytics
+  avgAttendance: { type: Number, default: 0 }, // percent
+  lastSessionDate: { type: Date, default: null },
+}, { timestamps: true });
+
+// lightweight pre-save update: only recalc counts if students changed
+subGroupSchema.pre("save", function(next) {
   try {
-    // Avoid running attendance calculations if no students exist
-    if (!this.students || this.students.length === 0) {
-      this.avgAttendance = 0;
-      return next();
-    }
-
-    // Count attendance logs for this subgroup
-    const presentCount = await AttendanceLog.countDocuments({
-      course: this.course,
-      student: { $in: this.students },
-      status: "completed",
-    });
-
-    const total = this.students.length;
-    this.avgAttendance = total > 0 ? ((presentCount / total) * 100).toFixed(1) : 0;
-
+    if (this.isModified("students")) this.totalStudents = (this.students || []).length;
     next();
-  } catch (err) {
-    console.error("Error calculating subgroup avg attendance:", err.message);
-    next();
-  }
+  } catch (err) { next(err); }
 });
 
-export default mongoose.model("SubGroup", subGroupSchema);
+subGroupSchema.index({ course: 1 });
+subGroupSchema.index({ teacher: 1 });
+
+export default mongoose.models.SubGroup || mongoose.model("SubGroup", subGroupSchema);

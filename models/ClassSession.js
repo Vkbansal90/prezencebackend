@@ -1,62 +1,42 @@
 import mongoose from "mongoose";
+const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
 const classSessionSchema = new mongoose.Schema({
-  // Core References
   course: { type: mongoose.Schema.Types.ObjectId, ref: "Course", required: true },
-  subGroup: { type: mongoose.Schema.Types.ObjectId, ref: "SubGroup" },
+  subGroup: { type: mongoose.Schema.Types.ObjectId, ref: "SubGroup", required: true },
   teacher: { type: mongoose.Schema.Types.ObjectId, ref: "Teacher", required: true },
 
-  // Schedule & Timing
+  // session timestamp (use range queries for "today")
   date: { type: Date, required: true },
-  dayOfWeek: {
-    type: String,
-    enum: [
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-      "Sunday",
-    ],
-  },
-  startTime: { type: String, required: true }, // e.g. "09:00"
-  endTime: { type: String, required: true },   // e.g. "10:30"
+  dayOfWeek: { type: String, enum: DAYS },
 
-  // Location
-  location: {
-    room: String,
-    building: String,
-    lat: Number,
-    lng: Number,
-    address: String,
-  },
+  startTime: { type: String, required: true }, // "10:00"
+  endTime: { type: String, required: true },
 
-  // Class Details
-  instructor: { type: String },
-  type: { type: String, enum: ["Lecture", "Lab"], default: "Lecture" },
-  note: { type: String },
+  location: { room: String, building: String, lat: Number, lng: Number, address: String },
 
-  // Attendance Info
-  totalStudents: { type: Number, default: 0 },
+  type: { type: String, default: "Lecture" },
+  status: { type: String, enum: ["upcoming","completed","cancelled", "ongoing"], default: "upcoming" },
+
   enrolledStudents: [{ type: mongoose.Schema.Types.ObjectId, ref: "Student" }],
+  totalStudents: { type: Number, default: 0 },
 
-  // Class State
-  status: {
-    type: String,
-    enum: ["upcoming", "ongoing", "completed", "cancelled"],
-    default: "upcoming",
-  },
+  // optional UI helpers
+  sessionNotes: { type: String, default: "" },
+}, { timestamps: true });
 
-  // Metadata
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
+// pre-save light canonicalization
+classSessionSchema.pre("save", function(next) {
+  try {
+    if (this.date && !this.dayOfWeek) this.dayOfWeek = DAYS[new Date(this.date).getDay()];
+    if (Array.isArray(this.enrolledStudents)) this.totalStudents = this.enrolledStudents.length;
+    next();
+  } catch (err) { next(err); }
 });
 
-// Auto-update `updatedAt` before saving
-classSessionSchema.pre("save", function (next) {
-  this.updatedAt = Date.now();
-  next();
-});
+// indexes for fast dashboard queries
+classSessionSchema.index({ date: 1 });
+classSessionSchema.index({ enrolledStudents: 1 });
+classSessionSchema.index({ course: 1, date: 1 });
 
-export default mongoose.model("ClassSession", classSessionSchema);
+export default mongoose.models.ClassSession || mongoose.model("ClassSession", classSessionSchema);

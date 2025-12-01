@@ -29,7 +29,7 @@ async function main() {
 }
 
 main()
-  .then(() => console.log("✅ Connected to DB"))
+  .then(() => console.log("Connected to DB"))
   .catch((err) => console.error(" DB connection error:", err.message));
 
 // Root route
@@ -64,5 +64,5 @@ app.use("/api/teacher/students", teacherStudentRoutes);
 // });
 
 app.listen(process.env.PORT, () => {
-  console.log(`🚀 Server is listening on port ${process.env.PORT}`);
+  console.log(` Server is listening on port ${process.env.PORT}`);
 });
