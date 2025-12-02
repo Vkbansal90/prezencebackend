@@ -123,4 +123,32 @@ router.put("/:studentId/notifications", async (req, res) => {
   }
 });
 
+/**
+ * Change Password
+ * PUT /api/profile/:studentId/password
+ */
+router.put("/:studentId/password", async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { oldPassword, newPassword } = req.body;
+
+    const student = await Student.findById(studentId);
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    // Verify old password
+    const isMatch = await student.matchPassword(oldPassword);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Incorrect old password" });
+    }
+
+    // Update password (pre-save hook will hash it)
+    student.password = newPassword;
+    await student.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

@@ -28,7 +28,7 @@ router.get("/", protectTeacher, async (req, res) => {
 
     // Get enrollments
     const enrollments = await Enrollment.find(enrollmentFilter)
-      .populate("student", "name email phone rollNumber")
+      .populate("student") // Populate full student document
       .populate("course", "name");
 
     // If subgroup filter applied
@@ -61,13 +61,20 @@ router.get("/", protectTeacher, async (req, res) => {
         }).select("name");
 
         return {
-          name: enr.student.name,
-          email: enr.student.email,
-          phone: enr.student.phone,
+          user: {
+            _id: enr.student._id,
+            name: enr.student.name,
+            email: enr.student.email,
+            phone: enr.student.phone,
+            rollNumber: enr.student.rollNumber
+          },
+          _id: enr.student._id,
+          name: enr.student.name, // Fallback for flat parsing
           rollNumber: enr.student.rollNumber,
           course: enr.course.name,
           subGroup: subgroup ? subgroup.name : "—",
           attendanceRate: enr.attendanceRate ? `${enr.attendanceRate}%` : "0%",
+          attendance: { rate: enr.attendanceRate || 0 }
         };
       })
     );

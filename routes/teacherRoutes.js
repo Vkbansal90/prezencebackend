@@ -202,8 +202,90 @@ router.get("/courses", protectTeacher, async (req, res) => {
   try {
     const teacherId = req.teacher._id;
     const courses = await Course.find({ teacher: teacherId })
-      .populate("subGroups", "name");
+      .populate("subGroups", "name students");
     res.json(courses);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+/**
+ * Get Teacher Profile
+ * GET /api/teacher/profile
+ * Protected (Teacher)
+ */
+router.get("/profile", protectTeacher, async (req, res) => {
+  try {
+    const teacher = await Teacher.findById(req.teacher._id).select("-password");
+    if (!teacher) return res.status(404).json({ error: "Teacher not found" });
+    res.json(teacher);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Update Teacher Profile
+ * PUT /api/teacher/profile
+ * Protected (Teacher)
+ */
+router.put("/profile", protectTeacher, async (req, res) => {
+  try {
+    const updates = req.body;
+    const teacher = await Teacher.findByIdAndUpdate(req.teacher._id, updates, {
+      new: true,
+      runValidators: true,
+    }).select("-password");
+    
+    if (!teacher) return res.status(404).json({ error: "Teacher not found" });
+    res.json(teacher);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Change Password
+ * PUT /api/teacher/profile/password
+ * Protected (Teacher)
+ */
+router.put("/profile/password", protectTeacher, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const teacher = await Teacher.findById(req.teacher._id);
+    
+    if (!teacher) return res.status(404).json({ error: "Teacher not found" });
+
+    const isMatch = await teacher.matchPassword(oldPassword);
+    if (!isMatch) return res.status(400).json({ error: "Incorrect old password" });
+
+    teacher.password = newPassword;
+    await teacher.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Update Notification Preferences
+ * PUT /api/teacher/profile/notifications
+ * Protected (Teacher)
+ */
+router.put("/profile/notifications", protectTeacher, async (req, res) => {
+  try {
+    const { push, email, sms } = req.body;
+    const teacher = await Teacher.findById(req.teacher._id);
+    
+    if (!teacher) return res.status(404).json({ error: "Teacher not found" });
+
+    teacher.notificationPreferences = { push, email, sms };
+    await teacher.save();
+
+    res.json({ message: "Notification preferences updated" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

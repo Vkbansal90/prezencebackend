@@ -13,6 +13,12 @@ const teacherSchema = new mongoose.Schema({
   courses: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }],
   avgAttendance: { type: Number, default: 0 },
   engagementRate: { type: Number, default: 0 },
+  
+  notificationPreferences: {
+    push: { type: Boolean, default: true },
+    email: { type: Boolean, default: true },
+    sms: { type: Boolean, default: false },
+  },
 }, { timestamps: true });
 
 teacherSchema.index({ email: 1 });

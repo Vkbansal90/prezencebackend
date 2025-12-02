@@ -1,8 +1,11 @@
-// routes/studentRoutes.js
 import express from "express";
 import { protectStudent } from "../middleware/authMiddleware.js";
 import Enrollment from "../models/Enrollment.js";
 import Student from "../models/Student.js";
+import ClassSession from "../models/ClassSession.js";
+import SubGroup from "../models/SubGroup.js";
+import AttendanceLog from "../models/AttendanceLog.js";
+
 const router = express.Router();
 
 // Dashboard route (uses JWT)
@@ -18,30 +21,56 @@ router.get("/dashboard", protectStudent, async (req, res) => {
       .populate("course")
       .lean();
 
-    // Calculate summary
-    const totalCourses = enrollments.length;
+    const courseIds = enrollments.map(e => e.course?._id).filter(id => !!id);
+
+    // Calculate summary and enrich courses
+    const coursesData = await Promise.all(enrollments.map(async (e) => {
+      if (!e.course) return null;
+
+      // Calculate stats dynamically to ensure consistency
+      const completedSessions = await ClassSession.find({
+        course: e.course._id,
+        status: { $in: ["completed", "ongoing"] }
+      }).select("_id");
+      
+      const completedSessionIds = completedSessions.map(s => s._id);
+      const totalClasses = completedSessionIds.length;
+
+      const attendedClasses = await AttendanceLog.countDocuments({
+        student: studentId,
+        course: e.course._id,
+        session: { $in: completedSessionIds },
+        status: "completed"
+      });
+
+      return {
+        id: e.course._id,
+        name: e.course.name,
+        professor: e.course.teacher,
+        attendance: `${attendedClasses}/${totalClasses}`,
+        percentage: totalClasses > 0 ? Math.round((attendedClasses / totalClasses) * 100) : 0,
+        nextClass: e.nextClass || { day: "Today", time: "10:00 AM" },
+        building: e.course.building,
+        room: e.course.room,
+        // Helper for summary
+        _stats: { attended: attendedClasses, total: totalClasses }
+      };
+    }));
+
+    const validCourses = coursesData.filter(c => c !== null);
+
+    const totalCourses = validCourses.length;
     const avgAttendance =
       totalCourses === 0
         ? 0
         : Math.round(
-            enrollments.reduce(
-              (sum, e) => sum + (e.attendedClasses / Math.max(e.totalClasses, 1)),
+            validCourses.reduce(
+              (sum, c) => sum + (c.percentage),
               0
-            ) /
-              totalCourses *
-              100
+            ) / totalCourses
           );
 
     // FETCH TODAY SESSIONS
-    const SubGroup = (await import("../models/SubGroup.js")).default;
-    const ClassSession = (await import("../models/ClassSession.js")).default;
-
-    // Find all subgroups the student belongs to
-    const subGroups = await SubGroup.find({ students: studentId })
-      .select("_id")
-      .lean();
-    const subGroupIds = subGroups.map((sg) => sg._id);
-
     // Define today's range (local day)
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -53,10 +82,7 @@ router.get("/dashboard", protectStudent, async (req, res) => {
     const todaySessions = await ClassSession.find({
       date: { $gte: start, $lte: end },
       status: { $in: ["upcoming", "ongoing"] },
-      $or: [
-        { enrolledStudents: studentId },
-        { subGroup: { $in: subGroupIds } },
-      ],
+      course: { $in: courseIds },
     })
       .populate("course", "name shortTitle building room teacher")
       .populate("subGroup", "name")
@@ -73,10 +99,7 @@ router.get("/dashboard", protectStudent, async (req, res) => {
     const weeklySessions = await ClassSession.find({
       date: { $gte: weekStart, $lte: weekEnd },
       status: { $in: ["upcoming", "ongoing"] },
-      $or: [
-        { enrolledStudents: studentId },
-        { subGroup: { $in: subGroupIds } },
-      ],
+      course: { $in: courseIds },
     })
       .populate("course", "name shortTitle building room teacher")
       .populate("subGroup", "name")
@@ -94,16 +117,10 @@ router.get("/dashboard", protectStudent, async (req, res) => {
       },
       todaySessions,
       weeklySessions,
-      courses: enrollments.map((e) => ({
-        id: e.course?._id,
-        name: e.course?.name,
-        professor: e.course?.teacher,
-        attendance: `${e.attendedClasses}/${e.totalClasses}`,
-        percentage: Math.round((e.attendedClasses / Math.max(e.totalClasses, 1)) * 100),
-        nextClass: e.nextClass || { day: "Today", time: "10:00 AM" },
-        building: e.course?.building,
-        room: e.course?.room,
-      })),
+      courses: validCourses.map(c => {
+        const { _stats, ...rest } = c;
+        return rest;
+      }),
     };
 
     res.json(dashboardData);

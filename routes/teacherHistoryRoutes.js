@@ -80,7 +80,19 @@ router.get("/all", protectTeacher, async (req, res) => {
 
     const filters = {
       teacher: teacherId,
-      status: "completed",
+      $or: [
+        { status: "completed" },
+        { 
+          status: "upcoming", 
+          $or: [
+            { date: { $lt: new Date(new Date().setHours(0, 0, 0, 0)) } },
+            { 
+              date: new Date(new Date().setHours(0, 0, 0, 0)), 
+              endTime: { $lte: `${new Date().getHours().toString().padStart(2, '0')}:${new Date().getMinutes().toString().padStart(2, '0')}` } 
+            }
+          ]
+        }
+      ]
     };
 
     if (courseId) filters.course = courseId;
