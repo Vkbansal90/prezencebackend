@@ -14,6 +14,7 @@ import subGroupRoutes from "./routes/subGroupRoutes.js";
 import teacherScheduleRoutes from "./routes/teacherScheduleRoutes.js";
 import teacherHistoryRoutes from "./routes/teacherHistoryRoutes.js";
 import teacherStudentRoutes from "./routes/teacherStudentRoutes.js";
+import profileRoutes from "./routes/profileRoutes.js";
 
 const app = express();
 dotenv.config();
@@ -50,6 +51,9 @@ app.use("/api/attendance", attendanceRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/schedule", scheduleRoutes);
 app.use("/api/analytics", analyticsRoutes);
+
+// Profile routes (get full student profile by id)
+app.use("/api/profile", profileRoutes);
 
 // Teacher Routes
 app.use("/api/teacher", teacherRoutes);

@@ -13,10 +13,13 @@ router.get("/:studentId", async (req, res) => {
   try {
     const { studentId } = req.params;
 
-    const student = await Student.findById(studentId).populate({
-      path: "courses",
-      populate: { path: "course", select: "name professor" },
-    });
+    // Load student basic info (no invalid `courses` populate - Enrollment stores courses)
+    const student = await Student.findById(studentId).select('-password').lean();
+
+    // Fetch enrollments and populate course info to include in profile
+    const enrollments = await Enrollment.find({ student: studentId })
+      .populate({ path: 'course', select: 'name professor shortTitle building room' })
+      .lean();
 
     if (!student) return res.status(404).json({ error: "Student not found" });
 
@@ -55,6 +58,17 @@ router.get("/:studentId", async (req, res) => {
       address: student.address,
       notificationPreferences: student.notificationPreferences,
       achievements,
+      courses: enrollments.map(e => ({
+        id: e.course?._id,
+        name: e.course?.name,
+        professor: e.course?.professor,
+        shortTitle: e.course?.shortTitle,
+        building: e.course?.building,
+        room: e.course?.room,
+        attendedClasses: e.attendedClasses,
+        totalClasses: e.totalClasses,
+        attendanceRate: e.attendanceRate,
+      })),
     };
 
     res.json(profileData);

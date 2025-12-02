@@ -14,11 +14,13 @@ const router = express.Router();
 router.get("/upcoming", protectStudent, async (req, res) => {
   try {
     const studentId = req.student._id; // from JWT
+    // Find courses the student is enrolled in and return sessions for those courses
+    const enrollments = await Enrollment.find({ student: studentId });
+    const courseIds = enrollments.map(e => e.course);
 
-    // Find all upcoming sessions where the student is in the enrolledStudents list
     const sessions = await ClassSession.find({
-      enrolledStudents: studentId,
-      status: { $in: ["upcoming", "scheduled"] },
+      course: { $in: courseIds },
+      status: { $in: ["upcoming", "ongoing"] },
       date: { $gte: new Date() },
     })
       .populate("course", "name")
@@ -44,10 +46,12 @@ router.get("/upcoming", protectStudent, async (req, res) => {
 router.get("/next", protectStudent, async (req, res) => {
   try {
     const studentId = req.student._id;
+    const enrollments = await Enrollment.find({ student: studentId });
+    const courseIds = enrollments.map(e => e.course);
 
     const nextClass = await ClassSession.findOne({
-      enrolledStudents: studentId,
-      status: { $in: ["upcoming", "scheduled"] },
+      course: { $in: courseIds },
+      status: { $in: ["upcoming", "ongoing"] },
       date: { $gte: new Date() },
     })
       .populate("course", "name")
@@ -80,8 +84,11 @@ router.get("/week", protectStudent, async (req, res) => {
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6); // Sunday
 
+    const enrollments = await Enrollment.find({ student: studentId });
+    const courseIds = enrollments.map(e => e.course);
+
     const weeklySessions = await ClassSession.find({
-      enrolledStudents: studentId,
+      course: { $in: courseIds },
       date: { $gte: startOfWeek, $lte: endOfWeek },
     })
       .populate("course", "name")

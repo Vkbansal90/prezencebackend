@@ -37,6 +37,12 @@ router.post("/verify-location", protectStudent, async (req, res) => {
     if (!session)
       return res.status(404).json({ error: "Class session not found." });
 
+    // If attendance already completed for this student & session, short-circuit
+    const completedLog = await AttendanceLog.findOne({ student: studentId, session: sessionId, status: 'completed' });
+    if (completedLog) {
+      return res.status(409).json({ message: 'Attendance already marked for this session.' });
+    }
+
     // Compute distance
     const distance = getDistance(
       lat,
@@ -86,6 +92,16 @@ router.post("/mark", protectStudent, async (req, res) => {
   try {
     const { sessionId, verifiedFace } = req.body;
     const studentId = req.student._id; // from JWT token
+
+    // Prevent duplicate attendance marking: if a completed log already exists
+    const alreadyCompleted = await AttendanceLog.findOne({
+      student: studentId,
+      session: sessionId,
+      status: "completed",
+    });
+    if (alreadyCompleted) {
+      return res.status(409).json({ message: "Attendance already marked for this session." });
+    }
 
     // Find latest log
     const log = await AttendanceLog.findOne({

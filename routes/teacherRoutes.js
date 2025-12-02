@@ -52,8 +52,9 @@ router.post("/login", async (req, res) => {
       return res.status(404).json({ error: "Teacher not found" });
 
     const match = await teacher.matchPassword(password);
+    console.log(match);
     if (!match)
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalidcredentials" });
 
     // Generate JWT token
     const token = jwt.sign({ id: teacher._id }, process.env.JWT_SECRET, {

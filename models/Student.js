@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const studentSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -27,5 +28,22 @@ const studentSchema = new mongoose.Schema({
 
 studentSchema.index({ rollNumber: 1 });
 studentSchema.index({ email: 1 });
+
+// Hash password before saving
+studentSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Method to compare passwords
+studentSchema.methods.matchPassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
 
 export default mongoose.models.Student || mongoose.model("Student", studentSchema);
