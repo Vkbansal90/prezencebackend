@@ -2,8 +2,17 @@ import express from "express";
 import Student from "../models/Student.js";
 import Enrollment from "../models/Enrollment.js";
 import AttendanceLog from "../models/AttendanceLog.js";
+import { protectStudent } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+// A student may only read and change their own profile
+router.use("/:studentId", protectStudent, (req, res, next) => {
+  if (String(req.student._id) !== req.params.studentId) {
+    return res.status(403).json({ error: "Not allowed to access this profile" });
+  }
+  next();
+});
 
 /**
  * Get student profile
@@ -51,9 +60,9 @@ router.get("/:studentId", async (req, res) => {
       rollNumber: student.rollNumber,
       department: student.department,
       year: student.year,
-      gpa: student.gpa,
+      gpa: student.cgpa,
       totalCredits: student.totalCredits,
-      enrollmentDate: student.enrollmentDate,
+      enrollmentDate: student.createdAt,
       phone: student.phone,
       address: student.address,
       notificationPreferences: student.notificationPreferences,
@@ -84,11 +93,15 @@ router.get("/:studentId", async (req, res) => {
 router.put("/:studentId", async (req, res) => {
   try {
     const { studentId } = req.params;
-    const updates = req.body;
+    // only these fields are editable from the app
+    const updates = {};
+    for (const key of ["name", "phone", "address"]) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
 
     const updatedStudent = await Student.findByIdAndUpdate(studentId, updates, {
       new: true,
-    });
+    }).select("-password");
 
     if (!updatedStudent)
       return res.status(404).json({ error: "Student not found" });

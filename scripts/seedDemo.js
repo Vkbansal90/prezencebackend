@@ -70,14 +70,15 @@ async function main() {
   if (!process.env.SEED_PASSWORD) console.log("SEED_PASSWORD not set: accounts get a random password.");
   const password = await bcrypt.hash(process.env.SEED_PASSWORD || crypto.randomBytes(24).toString("hex"), 10);
 
-  const teacher = await Teacher.create({
+  // insertMany skips the model's pre-save hook, which would hash the hash again
+  const [teacher] = await Teacher.insertMany([{
     name: "Dr. Neha Sharma",
     email: DEMO_TEACHER_EMAIL,
     password,
     department: "Computer Science & Engineering",
     designation: "Associate Professor",
     phone: "+91 98765 43210",
-  });
+  }]);
 
   const studentDocs = [
     { name: "Demo Student", email: DEMO_STUDENT_EMAIL, rollNumber: "102300001", cgpa: 8.7, attendance: 0.88 },

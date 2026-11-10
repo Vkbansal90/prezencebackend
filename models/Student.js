@@ -11,6 +11,13 @@ const studentSchema = new mongoose.Schema({
   cgpa: { type: Number, default: 0.0 },
   totalCredits: { type: Number, default: 0 },
   profilePic: { type: String, default: "" },
+  phone: { type: String, default: "" },
+  address: { type: String, default: "" },
+  notificationPreferences: {
+    push: { type: Boolean, default: true },
+    email: { type: Boolean, default: true },
+    sms: { type: Boolean, default: false },
+  },
 
   // enrollment refs (one doc per student-course)
   enrollments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Enrollment" }],
