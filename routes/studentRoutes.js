@@ -2,6 +2,7 @@ import express from "express";
 import { protectStudent } from "../middleware/authMiddleware.js";
 import Enrollment from "../models/Enrollment.js";
 import Student from "../models/Student.js";
+import Teacher from "../models/Teacher.js";
 import ClassSession from "../models/ClassSession.js";
 import SubGroup from "../models/SubGroup.js";
 import AttendanceLog from "../models/AttendanceLog.js";
@@ -105,6 +106,14 @@ router.get("/dashboard", protectStudent, async (req, res) => {
       .populate("subGroup", "name")
       .sort({ date: 1 })
       .lean();
+
+    // The app displays course.teacher as the professor, so send the name
+    const teacherIds = [...todaySessions, ...weeklySessions].map(s => s.course?.teacher).filter(id => !!id);
+    const teachers = await Teacher.find({ _id: { $in: teacherIds } }).select("name").lean();
+    const teacherNames = new Map(teachers.map(t => [String(t._id), t.name]));
+    for (const s of [...todaySessions, ...weeklySessions]) {
+      if (s.course?.teacher) s.course.teacher = teacherNames.get(String(s.course.teacher)) || "";
+    }
 
     const dashboardData = {
       student: {

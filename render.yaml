@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: presenz-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: MONGO_URL
+        sync: false # paste the Atlas connection string in the Render dashboard
+      - key: JWT_SECRET
+        generateValue: true
